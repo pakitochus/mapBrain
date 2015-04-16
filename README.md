@@ -1,6 +1,8 @@
 mapBrain
 ===================
-Performs a Spherical Brain Mapping of a 3D Brain Image. 
+A librrary to perform **Spherical Brain Mapping** on a 3D Brain Image. 
+
+The **Spherical Brain Mapping** (SBM) is a framework intended to map the internal structures and features of the brain onto a 2D image that summarizes all this information, as described in [1] and [2]. 
 
 Installation
 ----------------
