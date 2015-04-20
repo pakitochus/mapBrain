@@ -21,7 +21,7 @@ img = nib.load('MRIimage.nii')
 sbm = mapBrain.SphericalBrainMapping()
 map = sbm.doSBM(img.get_data(), measure='average', show=True)
 ```
-TODO
+To-Do
 -----------------
 - Add support for functions as objects
 - Add support for different sampling methods
