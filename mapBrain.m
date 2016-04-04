@@ -70,14 +70,16 @@ function [map,azim,elev] = mapBrain(I, varargin)
 % #25-Ubuntu SMP Thu Jan 30 17:25:07 UTC 2014 i686
 %
 % created by: fjesusmartinez@ugr.es
-% UPDATED: Feb 20th 2015
+% UPDATED: Feb 20th 2016
 %
 % REFs:
 % [1] - F.J. Martinez-Murcia et al. Projecting MRI Brain images for the
-%       detection of Alzheimer's Disease. 2014.
-% [2] - F.J. Martinez-Murcia et al. A Statistical Projection of MRI Brain
-%       Images Approach for the Detection of Alzheimer's Disease. Journal
-%       of Current Alzheimer's Disease N(V). 2015.
+%       detection of Alzheimer's Disease. Innovation in Medicine and 
+%       Healthcare 207:225 2014.
+% [2] - F.J. Martinez-Murcia et al. A Spherical Brain Mapping of MR Images 
+%       for the Detection of Alzheimer's Disease. Journal
+%       of Current Alzheimer's Research. 13(5):575-88. 2016. 
+
 
 %Default Parameters:
 res =1;                 % Angular Resolution
