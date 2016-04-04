@@ -27,6 +27,13 @@ And then, perform the SBM using 'average':
     map = sbm.doSBM(img.get_data(), measure='average', show=True)
 
 Francisco Jesus Martinez Murcia, Spring 2015
+REFs:
+[1] - F.J. Martinez-Murcia et al. Projecting MRI Brain images for the
+      detection of Alzheimer's Disease. Innovation in Medicine and 
+      Healthcare 207:225 2014.
+[2] - F.J. Martinez-Murcia et al. A Spherical Brain Mapping of MR Images 
+      for the Detection of Alzheimer's Disease. Journal
+      of Current Alzheimer's Research. 13(5):575-88. 2016. 
 """
 
 import numpy
