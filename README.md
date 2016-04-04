@@ -28,6 +28,6 @@ To-Do
 
 References
 ---------------------
-1. F.J. Martinez-Murcia et al. *A Spherical Brain Mapping of MR images for the detection of Alzheimer's Disease*. **Current Alzheimer Research**. Accepted. 2015. 
+1. F.J. Martinez-Murcia et al. *A Spherical Brain Mapping of MR images for the detection of Alzheimer's Disease*. **Current Alzheimer Research** 13(5):575-88. 2016. 
 2. F.J. Martinez-Murcia et al. *Projecting MRI Brain images for the detection of Alzheimer's Disease*. **Stud Health Technol Inform** 207, 225-33. 2014. 
 3. F.J. Martínez-Murcia et al. *A Volumetric Radial LBP Projection of MRI Brain Images for the Diagnosis of Alzheimer’s Disease*. **Lecture Notes in Computer Science** 9107, 19-28. 2015.
