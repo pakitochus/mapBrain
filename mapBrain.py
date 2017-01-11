@@ -61,27 +61,27 @@ class SphericalBrainMapping(object):
         self.ithreshold = ithreshold
         self.nlayers = nlayers
         
-    def setResolution(self, resolution=1):
-        """ Sets the angular resolution at which the map will be computed
+    def vsetResolution(self, resolution=1):
+        """ vsets the angular resolution at which the map will be computed
         :param resolution: Angular resolution at which each mapping vector 
         will be computed (default 1). 
         """
         self.resolution = resolution
         
-    def setDeformation(self, deformation=0.0):
-        """ Sets the deformation rate to be used in SBM. 
+    def vsetDeformation(self, deformation=0.0):
+        """ vsets the deformation rate to be used in SBM. 
         :param deformation: Deformation rate (float 0-1)
         """
         self.deformation = deformation
         
-    def setIThreshold(self, ithreshold=0):
-        """ Sets the intensity threshold to be used in SBM.
+    def vsetIThreshold(self, ithreshold=0):
+        """ vsets the intensity threshold to be used in SBM.
         :param ithreshold: Intensity Threshold
         """
         self.ithreshold = ithreshold
     
-    def setNLayers(self, nlayers=1):
-        """ Sets the number of layers to be mapped
+    def vsetNLayers(self, nlayers=1):
+        """ vsets the number of layers to be mapped
         :param nlayers: Nummber of equally distributed layers (default 1)
         """
         self.nlayers = nlayers
@@ -110,54 +110,58 @@ class SphericalBrainMapping(object):
         elev = numpy.deg2rad(numpy.arange(-90, 90+self.resolution, self.resolution))
         return azim, elev
         
-    def surface(self, set):
+    def surface(self, vset):
         """ Returns the surface of all mapped voxels
-        :param set: Set of mapped voxels' intensity
+        :param vset: set of mapped voxels' intensity
         """
-        return numpy.nanmax(numpy.argwhere(set>self.ithreshold))
+        return numpy.nanmax(numpy.argwhere(vset>self.ithreshold))
         
-    def thickness(self, set):
+    def thickness(self, vset):
         """ Returns the thickness of the layer of mapped voxels
-        :param set: Set of mapped voxels' intensity
+        :param vset: set of mapped voxels' intensity
         """
-        thickness = numpy.nanmax(numpy.argwhere(set>self.ithreshold)) - numpy.nanmin(numpy.argwhere(set>self.ithreshold))
+        aux = numpy.argwhere(vset>self.ithreshold)
+        if aux.size>0:
+            thickness = numpy.nanmax(aux) - numpy.nanmin(aux)
+        else:
+            thickness = 0
         return thickness
         
-    def numfold(self, set):
-        """ Returns the number of non-connected subsets in the mapped voxels
-        :param set: Set of mapped voxels' intensity
+    def numfold(self, vset):
+        """ Returns the number of non-connected subvsets in the mapped voxels
+        :param vset: set of mapped voxels' intensity
         """
-        return numpy.ceil(len(numpy.argwhere(numpy.bitwise_xor(set[:-1]>self.ithreshold, set[1:]>self.ithreshold)))/2.)
+        return numpy.ceil(len(numpy.argwhere(numpy.bitwise_xor(vset[:-1]>self.ithreshold, vset[1:]>self.ithreshold)))/2.)
         
-    def average(self, set):
-        """ Returns the average of the sampling set
-        :param set: Set of mapped voxels' intensity
+    def average(self, vset):
+        """ Returns the average of the sampling vset
+        :param vset: set of mapped voxels' intensity
         """
-        return numpy.nanmean(set)     
+        return numpy.nanmean(vset)     
            
-    def variance(self, set):
-        """ Returns the variance of the sampling set
-        :param set: Set of mapped voxels' intensity
+    def variance(self, vset):
+        """ Returns the variance of the sampling vset
+        :param vset: set of mapped voxels' intensity
         """
-        return numpy.nanvar(set)      
+        return numpy.nanvar(vset)      
            
-    def skewness(self, set):
-        """ Returns the variance of the sampling set
-        :param set: Set of mapped voxels' intensity
+    def skewness(self, vset):
+        """ Returns the variance of the sampling vset
+        :param vset: set of mapped voxels' intensity
         """
-        return skew(set, bias=False)
+        return skew(vset, bias=False)
            
-    def entropy(self, set):
-        """ Returns the variance of the sampling set
-        :param set: Set of mapped voxels' intensity
+    def entropy(self, vset):
+        """ Returns the variance of the sampling vset
+        :param vset: set of mapped voxels' intensity
         """
-        return sum(numpy.multiply(set[set>self.ithreshold],numpy.log(set[set>self.ithreshold])))
+        return sum(numpy.multiply(vset[vset>self.ithreshold],numpy.log(vset[vset>self.ithreshold])))
            
-    def kurtosis(self, set):
-        """ Returns the variance of the sampling set
-        :param set: Set of mapped voxels' intensity
+    def kurtosis(self, vset):
+        """ Returns the variance of the sampling vset
+        :param vset: set of mapped voxels' intensity
         """
-        return kurtosis(set, fisher=False, bias=False)        
+        return kurtosis(vset, fisher=False, bias=False)        
         
     def showMap(self, map, measure):
         """ Shows the computed maps in a window using pylab
@@ -202,7 +206,7 @@ class SphericalBrainMapping(object):
         return x, y, z
 
             
-    def doSBM(self, image, measure='average', show=True):
+    def doSBM(self, image, measure='average', show=True, centre=None):
         """ Performs the SBM on the selected image and using the specified 
         measure
         :param image: Three-dimensional intensity array corresponding to a 3D 
@@ -212,8 +216,9 @@ class SphericalBrainMapping(object):
         """
         image[numpy.isnan(image)] = 0
         tam = image.shape                           # Size of the image
-        puntoMedio = numpy.divide(image.shape,2)    # To compute the middle point
-        lon = max(puntoMedio)                       # Compute the maximum value of the mapping vector v
+        if centre is None:
+            centre = numpy.divide(image.shape,2)    # To compute the middle point
+        lon = max(centre)                       # Compute the maximum value of the mapping vector v
         tamArr=numpy.repeat([tam],lon,0)
 
         # We create the mapping vectors and perform the conversion from spherical
@@ -222,13 +227,13 @@ class SphericalBrainMapping(object):
         THETA,PHI,RAD = numpy.meshgrid(azim, elev, numpy.arange(lon))
         x,y,z = self.sph2cart(THETA,PHI,RAD)
         
-        X = numpy.int32(numpy.round(x+puntoMedio[0]))
-        Y = numpy.int32(numpy.round(y+puntoMedio[1]))
-        Z = numpy.int32(numpy.round(z+puntoMedio[2]))
+        X = numpy.int32(numpy.round(x+centre[0]))
+        Y = numpy.int32(numpy.round(y+centre[1]))
+        Z = numpy.int32(numpy.round(z+centre[2]))
         coord = numpy.ravel_multi_index((X,Y,Z), mode='clip', dims=tam, order='F').transpose((1,0,2))
 
         # This is the blank map to be filled. 
-        map = numpy.zeros([self.nlayers, numpy.ceil(361/self.resolution), numpy.ceil(181/self.resolution)])
+        map = numpy.zeros([self.nlayers, numpy.ceil(361/self.resolution).astype(int), numpy.ceil(181/self.resolution).astype(int)])
         
         # Begin of the loop
         image = image.flatten('F')
@@ -236,16 +241,15 @@ class SphericalBrainMapping(object):
             intvl=numpy.int32(numpy.floor(lon/self.nlayers))
             for i in range(coord.shape[0]):
                 for j in range(coord.shape[1]):
-                    set = numpy.squeeze(image[coord[i][j][nl*intvl:(nl+1)*intvl]]
-)
+                    vset = numpy.squeeze(image[coord[i][j][nl*intvl:(nl+1)*intvl]])
                     if measure.__class__==type('str'):
                         try:
-                            map[nl][i][j] = getattr(self,measure)(set)
+                            map[nl][i][j] = getattr(self,measure)(vset)
                         except AttributeError:
-                            print "The measure "+measure+" is not supported"
+                            print("The measure %s is not supported"%measure)
                             return
                             
-        # If it has been set, we display the map
+        # If it has been vset, we display the map
         if show:
             self.showMap(map,measure)
 
