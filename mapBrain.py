@@ -146,25 +146,149 @@ class SphericalBrainMapping(object):
         return numpy.nanvar(vset)      
            
     def skewness(self, vset):
-        """ Returns the variance of the sampling vset
+        """ Returns the skewness of the sampling vset
         :param vset: set of mapped voxels' intensity
         """
         return skew(vset, bias=False)
            
     def entropy(self, vset):
-        """ Returns the variance of the sampling vset
+        """ Returns the entropy of the sampling vset
         :param vset: set of mapped voxels' intensity
         """
         return sum(numpy.multiply(vset[vset>self.ithreshold],numpy.log(vset[vset>self.ithreshold])))
            
     def kurtosis(self, vset):
-        """ Returns the variance of the sampling vset
+        """ Returns the kurtosis of the sampling vset
         :param vset: set of mapped voxels' intensity
         """
         return kurtosis(vset, fisher=False, bias=False)        
+
+
+    def _interp_single_gray_level(self, p, imag):
+        ''' Interpolates the gray level found at the point p
+        using interpolation by percentage of superposition of
+        pixels.
+        ''' 
+        # We create the array of surrounding points: 
+        a = numpy.array([[0, 0, 0],
+                      [0, 0, 1],
+                      [0, 1, 0],
+                      [0, 1, 1],
+                      [1, 0, 0],
+                      [1, 0, 1],
+                      [1, 1, 0],
+                      [1, 1, 1]])
+        points = (numpy.floor(p)+a).astype(int)
         
-    def showMap(self, map, measure):
-        """ Shows the computed maps in a window using pylab
+        # Extract the colours at each point:
+        c = imag[points[:,0], points[:,1], points[:,2]]
+        
+        # Calculate the weights as distances:
+        w = numpy.prod(1-numpy.abs(p-points),axis=1)
+        
+        # And sum the different values: 
+        ci = numpy.sum(c*w)
+        return ci
+    
+    def _interp_gray_level(self, p, imag):
+        ''' Interpolates the gray level found at the point array p
+        by using superposition interpolation. 
+        ''' 
+        if p.ndim==3:
+            ci = numpy.zeros(p.shape[:2])
+            for i in range(p.shape[0]):
+                ci[i,:] = numpy.array([self._interp_single_gray_level(punto,imag) for punto in p[i,:,:]])
+                
+        elif p.ndim==2:
+            ci = numpy.array([self._interp_single_gray_level(punto,imag) for punto in p])
+        return ci
+
+
+    def _get_points_centering(self, center, n):
+        ''' 
+        Gets the array of centerpoints in a given 
+        direction (n), in this order:
+        -------------
+        | 1 | 2 | 3 |
+        |------------
+        | 8 | 0 | 4 |
+        |-----------|
+        | 7 | 6 | 5 |
+        -------------
+        '''
+        u11 = numpy.sqrt(n[1]**2/(n[0]**2+n[1]**2))
+        u12 = -numpy.sqrt(n[1]**2/(n[0]**2+n[1]**2))
+        u21 = numpy.sqrt(1-u11**2)
+        u22 = numpy.sqrt(1-u12**2)
+        
+        u1 = numpy.array([u11, u21, 0])
+        u2 = numpy.array([u12, u22, 0])
+        
+        if numpy.dot(u1,n)<1e-10:
+            u = u1
+        else:
+            u = u2
+        
+        v = numpy.cross(n,u)
+        
+        p0 = center
+        p1 = center - u + v
+        p2 = center + v
+        p3 = center + u + v
+        p4 = center + u
+        p5 = center + u - v
+        p6 = center - v
+        p7 = center - u - v
+        p8 = center - u
+        return numpy.array([p0, p1, p2, p3, p4, p5, p6, p7, p8])
+    
+    def _posterizeImage(self, ndarray, numLevels = 16 ):
+        ''' 
+        Posterizes the image to number of levels
+        '''
+        
+        #Gray-level resizing
+        numLevels = numLevels-1 #don't touch. Logical adding issue.
+        minImage = numpy.nanmin(ndarray)
+        ndarray = ndarray-(minImage)
+        maxImage = numpy.nanmax(ndarray)
+        tempShift = maxImage/numLevels
+        ndarray = numpy.floor(ndarray/tempShift)
+        ndarray=ndarray + 1
+        numLevels = numLevels + 1 # don't touch. Logical adding issue.
+        
+        return ndarray
+
+
+    def computeTexture(self, p, imag, center, distances=1):
+        '''
+        Computes the texture around vector p
+        '''
+        from mahotas.features import texture
+        
+        origins = self._get_points_centering(center, p[1,:])
+        puntos = numpy.array([p+cent for cent in origins])
+        select = (puntos<numpy.array(imag.shape)-1).all(axis=2).all(axis=0)
+        p_real = puntos[:,select,:]
+        
+        colors = self._interp_gray_level(p_real, imag)
+        
+        ndarray = self._posterizeImage(colors)
+        
+        # Prevent errors with iterative list:
+        if (type(distances) is not list) and (type(distances) is not numpy.ndarray):
+            distances = [distances]        
+        
+        glcm=[]
+        for dis in distances:
+            glcm.append(texture.cooccurence(ndarray.astype(int)-1, 0, distance=dis, symmetric=False))
+        features = texture.haralick_features(glcm)
+        labels = texture.haralick_labels
+        return features, labels
+    
+    
+    def showMap(self, map, measure, cmap='gray'):
+        """ Shows the computed maps in a window using pyplot
         :param map: map or array of maps to be shown
         """
         import matplotlib.pyplot as plt
@@ -176,14 +300,24 @@ class SphericalBrainMapping(object):
             nrow = numpy.ceil(self.nlayers/ncol)
             for nl in range(self.nlayers):
                 plt.subplot(nrow,ncol,nl+1)
-                plt.imshow(numpy.rot90(map[nl]),cmap='gray', vmin=minimum, vmax=maximum)
+                plt.imshow(numpy.rot90(map[nl]),cmap=cmap, vmin=minimum, vmax=maximum)
+                plt.title(measure+'-SBM ('+str(nl)+')')
+                plt.colorbar()
+            plt.show()
+        elif measure=='texture':
+            imgplot = plt.figure()
+            ncol = numpy.floor(13/numpy.ceil(13**(1.0/3)))
+            nrow = numpy.ceil(13/ncol)
+            for nl in range(13):
+                plt.subplot(nrow,ncol,nl+1)
+                plt.imshow(numpy.rot90(map[nl,:,:]),cmap=cmap, vmin=minimum, vmax=maximum)
                 plt.title(measure+'-SBM ('+str(nl)+')')
                 plt.colorbar()
             plt.show()
                 
         else:
             imgplot = plt.figure()
-            plt.imshow(numpy.rot90(map[0]),cmap='gray', vmin=minimum, vmax=maximum)
+            plt.imshow(numpy.rot90(map[0]),cmap=cmap, vmin=minimum, vmax=maximum)
             plt.title(measure+'-SBM')
             plt.colorbar()
             plt.show()
@@ -195,8 +329,8 @@ class SphericalBrainMapping(object):
     def sph2cart(self, theta, phi, r):
         """ Returns the corresponding spherical coordinates given the elevation,
         azimuth and radius
-        :param theta: Azimuth angle
-        :param phi: Elevation angle
+        :param theta: Azimuth angle (radians)
+        :param phi: Elevation angle (radians)
         :param rad: Radius 
         """
         z = r * numpy.sin(phi)
@@ -219,7 +353,7 @@ class SphericalBrainMapping(object):
         if centre is None:
             centre = numpy.divide(image.shape,2)    # To compute the middle point
         lon = max(centre)                       # Compute the maximum value of the mapping vector v
-        tamArr=numpy.repeat([tam],lon,0)
+#        tamArr=numpy.repeat([tam],lon,0) # Residual
 
         # We create the mapping vectors and perform the conversion from spherical
         # coordinates to cartesian coordiantes (the ones in our 3D array). 
@@ -227,33 +361,45 @@ class SphericalBrainMapping(object):
         THETA,PHI,RAD = numpy.meshgrid(azim, elev, numpy.arange(lon))
         x,y,z = self.sph2cart(THETA,PHI,RAD)
         
-        X = numpy.int32(numpy.round(x+centre[0]))
-        Y = numpy.int32(numpy.round(y+centre[1]))
-        Z = numpy.int32(numpy.round(z+centre[2]))
-        coord = numpy.ravel_multi_index((X,Y,Z), mode='clip', dims=tam, order='F').transpose((1,0,2))
-
-        # This is the blank map to be filled. 
-        map = numpy.zeros([self.nlayers, numpy.ceil(361/self.resolution).astype(int), numpy.ceil(181/self.resolution).astype(int)])
-        
-        # Begin of the loop
-        image = image.flatten('F')
-        for nl in range(self.nlayers):
-            intvl=numpy.int32(numpy.floor(lon/self.nlayers))
-            for i in range(coord.shape[0]):
-                for j in range(coord.shape[1]):
-                    vset = numpy.squeeze(image[coord[i][j][nl*intvl:(nl+1)*intvl]])
-                    if measure.__class__==type('str'):
-                        try:
-                            map[nl][i][j] = getattr(self,measure)(vset)
-                        except AttributeError:
-                            print("The measure %s is not supported"%measure)
-                            return
+        if measure=='texture':
+            # Define the blank map to be filled (nlayers, features, 361, 181)
+            mapa = numpy.zeros([13, numpy.ceil(361/self.resolution).astype(int), numpy.ceil(181/self.resolution).astype(int)])
+#            for nl in range(self.nlayers):
+#                intvl=numpy.int32(numpy.floor(lon/self.nlayers)) # no sirve para nada todavía
+            # eliminamos el número de capas
+            for i in range(azim.shape[0]):
+                for j in range(elev.shape[0]):
+                    p = numpy.vstack((x[j,i,:].flatten(),y[j,i,:].flatten(),z[j,i,:].flatten())).T
+                    mapa[:,i,j], _ = self.computeTexture(p, image, centre)
+            
+        else:
+            X = numpy.int32(numpy.round(x+centre[0]))
+            Y = numpy.int32(numpy.round(y+centre[1]))
+            Z = numpy.int32(numpy.round(z+centre[2]))
+            coord = numpy.ravel_multi_index((X,Y,Z), mode='clip', dims=tam, order='F').transpose((1,0,2))
+    
+            # This is the blank map to be filled. 
+            mapa = numpy.zeros([self.nlayers, numpy.ceil(361/self.resolution).astype(int), numpy.ceil(181/self.resolution).astype(int)])
+            
+            # Begin of the loop
+            image = image.flatten('F')
+            for nl in range(self.nlayers):
+                intvl=numpy.int32(numpy.floor(lon/self.nlayers))
+                for i in range(coord.shape[0]):
+                    for j in range(coord.shape[1]):
+                        vset = numpy.squeeze(image[coord[i][j][nl*intvl:(nl+1)*intvl]])
+                        if measure.__class__==type('str'):
+                            try:
+                                mapa[nl][i][j] = getattr(self,measure)(vset)
+                            except AttributeError:
+                                print("The measure %s is not supported"%measure)
+                                return
                             
         # If it has been vset, we display the map
         if show:
-            self.showMap(map,measure)
+            self.showMap(mapa,measure)
 
-        return map
+        return mapa
         
         
         
