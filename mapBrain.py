@@ -114,7 +114,10 @@ class SphericalBrainMapping(object):
         """ Returns the surface of all mapped voxels
         :param vset: set of mapped voxels' intensity
         """
-        return numpy.nanmax(numpy.argwhere(vset>self.ithreshold))
+        val = numpy.argwhere(vset>self.ithreshold)
+        if len(val)==0:
+            val=numpy.zeros(1)
+        return numpy.nanmax(val)
         
     def thickness(self, vset):
         """ Returns the thickness of the layer of mapped voxels
