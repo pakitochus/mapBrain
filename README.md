@@ -1,6 +1,6 @@
 mapBrain
 ===================
-[![DOI](https://zenodo.org/badge/21407/pakitochus/mapBrain.svg)](https://zenodo.org/badge/latestdoi/21407/pakitochus/mapBrain)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1042388.svg)](https://doi.org/10.5281/zenodo.1042388)
 
 A library to perform **Spherical Brain Mapping** on a 3D Brain Image. 
 
